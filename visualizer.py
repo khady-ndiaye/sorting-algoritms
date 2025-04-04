@@ -1,0 +1,152 @@
+import pygame
+import random
+import time
+from sorting_algorithms import SortingAlgorithms
+
+WIDTH, HEIGHT = 800, 600
+BAR_WIDTH = 5
+BAR_COLOR = (0, 102, 204)
+BG_COLOR = (255, 255, 255)
+SELECTED_COLOR = (255, 0, 0)
+BUTTON_COLOR = (200, 200, 200)
+BUTTON_HOVER_COLOR = (150, 150, 150)
+TEXT_COLOR = (0, 0, 0)
+
+class SortVisualizer:
+    def __init__(self):
+        pygame.init()
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Tri Visuel")
+        self.clock = pygame.time.Clock()
+        self.font = pygame.font.SysFont("Arial", 20)
+        self.algorithms = [
+            SortingAlgorithms.selection_sort,
+            SortingAlgorithms.bubble_sort,
+            SortingAlgorithms.insertion_sort,
+            SortingAlgorithms.merge_sort,
+            SortingAlgorithms.quick_sort,
+            SortingAlgorithms.heap_sort,
+            SortingAlgorithms.comb_sort,
+        ]
+        self.algorithm_names = [
+            "Selection Sort",
+            "Bubble Sort",
+            "Insertion Sort",
+            "Merge Sort",
+            "Quick Sort",
+            "Heap Sort",
+            "Comb Sort"
+        ]
+        self.buttons = []
+        self.return_button = pygame.Rect(WIDTH // 2 - 100, HEIGHT - 60, 200, 40)
+        self.numbers = []
+        self.generate_numbers()
+        self.create_buttons()
+        self.comparisons = 0
+        self.swaps = 0
+        self.execution_time = 0  # Initialize execution_time here
+        self.start_ticks = 0  # Track start time for sorting
+        self.is_sorting = False
+
+    def generate_numbers(self):
+        self.numbers = [random.randint(1, HEIGHT) for _ in range(WIDTH // BAR_WIDTH)]
+
+    def create_buttons(self):
+        self.buttons = []
+        for i, name in enumerate(self.algorithm_names):
+            rect = pygame.Rect(100, 70 + 40 * i, 200, 30)
+            self.buttons.append((rect, name))
+
+    def draw_bars(self, highlighted_indices=None):
+        self.screen.fill(BG_COLOR)
+        highlighted_indices = highlighted_indices or []
+        for i, value in enumerate(self.numbers):
+            x = i * BAR_WIDTH
+            color = SELECTED_COLOR if i in highlighted_indices else BAR_COLOR
+            pygame.draw.rect(self.screen, color, (x, HEIGHT - value, BAR_WIDTH, value))
+
+        # Afficher les statistiques
+        stats_text = self.font.render(f"Comparaisons: {self.comparisons} | Échanges: {self.swaps}", True, TEXT_COLOR)
+        time_text = self.font.render(f"Temps d'exécution: {self.execution_time:.6f} secondes", True, TEXT_COLOR)
+        self.screen.blit(stats_text, (10, 10))
+        self.screen.blit(time_text, (10, 40))
+        pygame.display.flip()
+
+    def draw_menu(self):
+        self.screen.fill(BG_COLOR)
+        title = self.font.render("Cliquez sur un tri:", True, TEXT_COLOR)
+        self.screen.blit(title, (WIDTH // 2 - title.get_width() // 2, 20))
+        mouse_pos = pygame.mouse.get_pos()
+
+        for i, (rect, _) in enumerate(self.buttons):
+            color = BUTTON_HOVER_COLOR if rect.collidepoint(mouse_pos) else BUTTON_COLOR
+            pygame.draw.rect(self.screen, color, rect)
+            text = self.font.render(self.algorithm_names[i], True, TEXT_COLOR)
+            self.screen.blit(text, (rect.x + 10, rect.y + 5))
+
+        pygame.display.flip()
+
+    def draw_return_button(self):
+        mouse_pos = pygame.mouse.get_pos()
+        color = BUTTON_HOVER_COLOR if self.return_button.collidepoint(mouse_pos) else BUTTON_COLOR
+        pygame.draw.rect(self.screen, color, self.return_button)
+        text = self.font.render("Retour au menu", True, TEXT_COLOR)
+        self.screen.blit(text, (self.return_button.x + 25, self.return_button.y + 10))
+        pygame.display.flip()
+
+    def draw_swap(self, arr, i, j):
+        self.comparisons += 1  # Incrémente les comparaisons
+        arr[i], arr[j] = arr[j], arr[i]  # Effectue l'échange
+        self.swaps += 1  # Incrémente les échanges
+
+        # Mettre à jour le temps d'exécution en continu
+        self.execution_time = (pygame.time.get_ticks() - self.start_ticks) / 1000.0  
+
+        # Dessiner les barres avec le bon temps et les stats
+        self.draw_bars([i, j])
+        
+
+
+    def measure_performance(self, sorting_function):
+        self.comparisons = 0
+        self.swaps = 0
+        self.execution_time = 0  
+        self.start_ticks = pygame.time.get_ticks()  # Capture le début du tri
+
+        sorting_function(self.numbers, self.draw_swap)  # Tri avec animation
+
+        self.execution_time = (pygame.time.get_ticks() - self.start_ticks) / 1000.0  # Calcul du temps écoulé
+        self.draw_bars()  # Met à jour l'affichage avec le bon temps
+        return self.execution_time
+
+
+    def run(self):
+        running = True
+        show_menu = True
+
+        while running:
+            if show_menu:
+                self.draw_menu()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        for i, (rect, _) in enumerate(self.buttons):
+                            if rect.collidepoint(event.pos):
+                                self.generate_numbers()
+                                self.draw_bars()
+                                self.execution_time = 0  # Reset time before each tri
+                                execution_time = self.measure_performance(self.algorithms[i])
+                                print(f"{self.algorithm_names[i]} - Temps d'exécution: {execution_time:.6f} secondes")
+                                show_menu = False
+            else:
+                self.draw_return_button()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                    elif event.type == pygame.MOUSEBUTTONDOWN:
+                        if self.return_button.collidepoint(event.pos):
+                            show_menu = True
+            self.clock.tick(60)  # Frame rate to control the speed of the loop
+
+        pygame.quit()
